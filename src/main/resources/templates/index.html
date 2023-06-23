@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Quiz App</title>
+    <style>
+        /* Some basic styling */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        .quiz-button {
+            padding: 10px 20px;
+            font-size: 18px;
+        }
+        .leaderboard {
+            position: fixed;
+            top: 0;
+            right: 0;
+            width: 200px;
+            padding: 10px;
+            background-color: #f0f0f0;
+        }
+        .leaderboard-item {
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+<div class="container" id="container-start">
+    <input type="text" id="username-input" placeholder="Enter your username">
+    <button class="quiz-button" onclick="startQuiz()">Start Quiz</button>
+</div>
+<div class="container" id="container-quiz" style="display: none;">
+    <div id="quiz-question-container"></div>
+</div>
+<div class="container" id="container-finish" style="display: none;">
+    <input type="text" id="new-username-input" placeholder="Enter new username">
+    <button class="quiz-button" onclick="startAgain()">Start Again</button>
+</div>
+<div class="leaderboard">
+    <h2>Leaderboard</h2>
+    <div id="leaderboard-items">
+        <!-- Leaderboard items will be dynamically populated here -->
+    </div>
+</div>
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.0.0/crypto-js.min.js"></script>
+<script>
+    // Function to calculate the SHA-256 hash
+    function sha256(message) {
+        return CryptoJS.SHA256(message).toString();
+    }
+
+    // Function to update the leaderboard based on the response data
+    function updateLeaderboard(leaderboardData) {
+        var leaderboardItems = $("#leaderboard-items");
+        leaderboardItems.empty(); // Clear the existing leaderboard items
+
+        for (var i = 0; i < leaderboardData.length; i++) {
+            var item = leaderboardData[i];
+            var leaderboardItem = $("<div>").addClass("leaderboard-item").text(item.username + ' - ' + item.score);
+            leaderboardItems.append(leaderboardItem);
+        }
+    }
+
+    var quizQuestions; // Variable to store the quiz questions
+    var currentQuestionIndex; // Variable to track the current question index
+    var score; // Variable to track the score
+    var username = ""; // Variable to store the username
+    var finalScoreDisplay = null; // Variable to store the final score display
+
+    // Function to display a question
+    function displayQuestion(question) {
+        var quizQuestionContainer = $("#quiz-question-container");
+        quizQuestionContainer.empty(); // Clear the existing quiz question container
+
+        var flagImage = $("<img>").attr("src", question.FlagSrc);
+        quizQuestionContainer.append(flagImage);
+
+        var quizAnswersContainer = $("<div>").addClass("quiz-answers-container");
+        quizQuestionContainer.append(quizAnswersContainer);
+
+        var shuffledAnswers = shuffleArray(question.PossibleAnswers);
+        for (var i = 0; i < shuffledAnswers.length; i++) {
+            var answerButton = $("<button>").addClass("quiz-button answer-button").text(shuffledAnswers[i]);
+            answerButton.click(function () {
+                var selectedAnswer = $(this).text();
+                checkAnswer(selectedAnswer);
+            });
+            quizAnswersContainer.append(answerButton);
+        }
+    }
+
+    // Function to shuffle the array using Fisher-Yates algorithm
+    function shuffleArray(array) {
+        for (var i = array.length - 1; i > 0; i--) {
+            var j = Math.floor(Math.random() * (i + 1));
+            var temp = array[i];
+            array[i] = array[j];
+            array[j] = temp;
+        }
+        return array;
+    }
+
+    // Function to check the selected answer
+    function checkAnswer(selectedAnswer) {
+        var currentQuestion = quizQuestions[currentQuestionIndex];
+        var providedAnswerHash = currentQuestion.AnswerHash;
+        var selectedAnswerHash = sha256(selectedAnswer);
+
+        if (providedAnswerHash === selectedAnswerHash) {
+            score++;
+        }
+
+        currentQuestionIndex++;
+        if (currentQuestionIndex < quizQuestions.length) {
+            displayQuestion(quizQuestions[currentQuestionIndex]);
+        } else {
+            finishQuiz();
+        }
+    }
+
+    // Function to finish the quiz
+    function finishQuiz() {
+        var scoreData = { username: username, score: score };
+
+        $.ajax({
+            type: "POST",
+            url: "/Quiz/Finish",
+            data: JSON.stringify(scoreData), // Send the username and score as JSON data
+            contentType: "application/json", // Set the content type to JSON
+            success: function () {
+                var quizContainer = $(".container");
+                quizContainer.hide(); // Hide the quiz container
+
+                var finishContainer = $("#container-finish");
+                finishContainer.show(); // Show the finish container
+
+                if (finalScoreDisplay !== null) {
+                    finalScoreDisplay.remove(); // Remove previous final score display
+                }
+
+                finalScoreDisplay = $("<div>").text("Final Score: " + score);
+                finishContainer.prepend(finalScoreDisplay); // Display the final score
+            },
+            error: function (error) {
+                console.error("Error finishing the quiz:", error);
+                // Handle the error if needed
+            }
+        });
+    }
+
+    // Function to start the quiz
+    function startQuiz() {
+        username = $("#username-input").val(); // Get the username from the input field
+
+        $.ajax({
+            type: "POST",
+            url: "/Quiz/Start",
+            data: JSON.stringify({ username: username }), // Send the username as JSON data
+            contentType: "application/json", // Set the content type to JSON
+            success: function (response) {
+                quizQuestions = response; // Store the quiz questions in the variable
+                currentQuestionIndex = 0; // Reset the current question index
+                score = 0; // Reset the score
+                displayQuestion(quizQuestions[currentQuestionIndex]);
+
+                var startContainer = $("#container-start");
+                startContainer.hide(); // Hide the start container
+
+                var quizContainer = $("#container-quiz");
+                quizContainer.show(); // Show the quiz container
+            },
+            error: function (error) {
+                console.error("Error starting the quiz:", error);
+                // Handle the error if needed
+            }
+        });
+    }
+
+    // Function to start the quiz again
+    function startAgain() {
+        var newUsername = $("#new-username-input").val(); // Get the new username from the input field
+        if (newUsername !== "") {
+            username = newUsername; // Update the username with the new value
+        }
+
+        var finishContainer = $("#container-finish");
+        finishContainer.hide(); // Hide the finish container
+
+        var quizContainer = $("#container-quiz");
+        quizContainer.show(); // Show the quiz container
+
+        currentQuestionIndex = 0; // Reset the current question index
+        score = 0; // Reset the score
+        displayQuestion(quizQuestions[currentQuestionIndex]);
+    }
+</script>
+</body>
+</html>
