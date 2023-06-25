@@ -1,21 +1,26 @@
 package com.javaproject.controllers;
 
-import com.javaproject.dto.FlagCodesResponse;
 import com.javaproject.dto.QuizQuestion;
 import com.javaproject.dto.ScoreData;
 import com.javaproject.dto.utils.QuestionsGenerator;
 import com.javaproject.dto.utils.Sha256HashGenerator;
-import org.springframework.stereotype.Controller;
+import com.javaproject.entity.Score;
+import com.javaproject.repository.ScoreRepository;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
-import java.util.Dictionary;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 
 @RestController
 @RequestMapping("/Quiz")
 public class QuizController {
+    private ScoreRepository scoreRepository;
 
+    public QuizController(ScoreRepository scoreRepository) {
+        this.scoreRepository = scoreRepository;
+    }
 
     @PostMapping("/Start")
     public List<QuizQuestion> startQuiz() {
@@ -41,11 +46,40 @@ public class QuizController {
     }
     @PostMapping("/Finish")
     public void finishQuiz(@RequestBody ScoreData data) {
-        var i = 5;
+        Score score = new Score(data.username, data.score);
+
+        List<Score> topScores = scoreRepository.findAll();
+        int topScoresCount = topScores.size();
+
+        if (topScoresCount < 20) {
+            // If there is room in the top 20, simply save the new score
+            scoreRepository.save(score);
+        } else {
+            // Sort the top scores in ascending order based on the score value
+            topScores.sort(Comparator.comparing(Score::getScore));
+
+            Score lowestScore = topScores.get(0);
+            if (score.getScore() > lowestScore.getScore()) {
+                // Delete the lowest score
+                scoreRepository.delete(lowestScore);
+
+                // Save the new score
+                scoreRepository.save(score);
+            }
+        }
     }
-    @GetMapping("/Leaderboard")
+    @GetMapping("/UpdateLeaderboard")
     public List<ScoreData> getLeaderBaord(){
-        return new ArrayList<ScoreData>();
+        List<Score> scores = scoreRepository.findAll();
+        List<ScoreData> topScores = new ArrayList<>();
+        for (Score scr : scores) {
+            ScoreData newScore = new ScoreData();
+            newScore.score = scr.getScore();
+            newScore.username = scr.getUserName();
+            topScores.add(newScore);
+        }
+        topScores.sort(Comparator.comparing(ScoreData::getScore).reversed());
+        return topScores;
     }
     private static String generateApiUrlForKey(String key) {
         return "https://flagcdn.com/256x192/" + key +".png"; // Return the generated API URL

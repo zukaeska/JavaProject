@@ -71,6 +71,21 @@
         }
     }
 
+    // Function to fetch the updated leaderboard
+    function fetchLeaderboard() {
+        $.ajax({
+            type: "GET",
+            url: "/Quiz/UpdateLeaderboard",
+            success: function (response) {
+                updateLeaderboard(response); // Update the leaderboard with the response data
+            },
+            error: function (error) {
+                console.error("Error updating leaderboard:", error);
+                // Handle the error if needed
+            }
+        });
+    }
+
     var quizQuestions; // Variable to store the quiz questions
     var currentQuestionIndex; // Variable to track the current question index
     var score; // Variable to track the score
@@ -150,6 +165,8 @@
 
                 finalScoreDisplay = $("<div>").text("Final Score: " + score);
                 finishContainer.prepend(finalScoreDisplay); // Display the final score
+
+                fetchLeaderboard(); // Fetch the updated leaderboard after finishing the quiz
             },
             error: function (error) {
                 console.error("Error finishing the quiz:", error);
@@ -190,19 +207,18 @@
     function startAgain() {
         var newUsername = $("#new-username-input").val(); // Get the new username from the input field
         if (newUsername !== "") {
-            username = newUsername; // Update the username with the new value
+            username = newUsername; // Update the username
         }
 
         var finishContainer = $("#container-finish");
         finishContainer.hide(); // Hide the finish container
 
-        var quizContainer = $("#container-quiz");
-        quizContainer.show(); // Show the quiz container
-
-        currentQuestionIndex = 0; // Reset the current question index
-        score = 0; // Reset the score
-        displayQuestion(quizQuestions[currentQuestionIndex]);
+        var startContainer = $("#container-start");
+        startContainer.show(); // Show the start container
     }
+
+    // Initial leaderboard fetch on page load
+    fetchLeaderboard();
 </script>
 </body>
 </html>

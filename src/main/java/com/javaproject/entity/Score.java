@@ -5,27 +5,22 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.util.UUID;
-
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(name = "Clients")
+@Table(name = "Scores")
 @Entity
-public class Client {
+public class Score {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long Id;
     private String UserName;
-    private String Password;
-    private String Email;
-    public Client(String userName, String password, String email) {
+    private int Score;
+    public Score(String userName, int score) {
         UserName = userName;
-        Password = password;
-        Email = email;
+        Score = score;
     }
-
     public Long getId() {
         return Id;
     }
@@ -42,19 +37,5 @@ public class Client {
         UserName = userName;
     }
 
-    public String getPassword() {
-        return Password;
-    }
 
-    public void setPassword(String password) {
-        Password = password;
-    }
-
-    public String getEmail() {
-        return Email;
-    }
-
-    public void setEmail(String email) {
-        Email = email;
-    }
 }
